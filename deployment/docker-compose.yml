@@ -39,6 +39,12 @@ services:
       - POSTGRES_USER_FILE=/run/secrets/db_user
       - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
       - POSTGRES_DB=digikeeper
+      - DIGIKEEPER_LOG_ENABLED=false
+      - DIGIKEEPER_LOG_BASE_URL=http://digikeeper-log:8080
+      - DIGIKEEPER_LOG_TIMEOUT=3s
+      - DIGIKEEPER_LOG_MAX_RETRIES=3
+      - DIGIKEEPER_LOG_CLIENT_ID=digikeeper-bot
+      # DIGIKEEPER_LOG_TOKEN_FILE=/run/secrets/digikeeper_log_token
     ports:
       - target: 8081
         published: 8081
