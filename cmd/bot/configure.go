@@ -64,10 +64,21 @@ type PostgresConfig struct {
 	PasswordFile string      `env:"PASSWORD_FILE" env-default:""`
 }
 
+type DigikeeperLogConfig struct {
+	Enabled    bool          `env:"ENABLED"`
+	BaseURL    string        `env:"BASE_URL" env-default:"http://localhost:8080"`
+	Timeout    time.Duration `env:"TIMEOUT" env-default:"3s"`
+	MaxRetries int           `env:"MAX_RETRIES" env-default:"3"`
+	ClientID   string        `env:"CLIENT_ID" env-default:"digikeeper-bot"`
+	Token      SecretValue   `env:"TOKEN" env-default:""`
+	TokenFile  string        `env:"TOKEN_FILE" env-default:""`
+}
+
 type Config struct {
-	Common   CommonConfig   `yaml:"common"`
-	Telegram TelegramConfig `yaml:"telegram" env-prefix:"TELEGRAM_"`
-	Postgres PostgresConfig `yaml:"postgres" env-prefix:"POSTGRES_"`
+	Common        CommonConfig        `yaml:"common"`
+	Telegram      TelegramConfig      `yaml:"telegram" env-prefix:"TELEGRAM_"`
+	Postgres      PostgresConfig      `yaml:"postgres" env-prefix:"POSTGRES_"`
+	DigikeeperLog DigikeeperLogConfig `yaml:"digikeeperlog" env-prefix:"DIGIKEEPER_LOG_"`
 }
 
 func (c *Config) IsDevEnv() bool {
@@ -99,18 +110,23 @@ func configure() Config {
 		log.Fatalf("Failed to read bot token: %v", err)
 	}
 
-	if !cfg.Postgres.Enabled {
-		return cfg
+	if cfg.Postgres.Enabled {
+		err = cfg.Postgres.User.LoadFromFile(cfg.Postgres.UserFile)
+		if err != nil {
+			log.Fatalf("Failed to read postgres user: %v", err)
+		}
+
+		err = cfg.Postgres.Password.LoadFromFile(cfg.Postgres.PasswordFile)
+		if err != nil {
+			log.Fatalf("Failed to read postgres password: %v", err)
+		}
 	}
 
-	err = cfg.Postgres.User.LoadFromFile(cfg.Postgres.UserFile)
-	if err != nil {
-		log.Fatalf("Failed to read postgres user: %v", err)
-	}
-
-	err = cfg.Postgres.Password.LoadFromFile(cfg.Postgres.PasswordFile)
-	if err != nil {
-		log.Fatalf("Failed to read postgres password: %v", err)
+	if cfg.DigikeeperLog.Enabled && cfg.DigikeeperLog.TokenFile != "" {
+		err = cfg.DigikeeperLog.Token.LoadFromFile(cfg.DigikeeperLog.TokenFile)
+		if err != nil {
+			log.Fatalf("Failed to read digikeeper-log token: %v", err)
+		}
 	}
 
 	return cfg
