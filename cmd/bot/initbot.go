@@ -39,7 +39,7 @@ func initWebHookBot(ctx context.Context, cfg Config, bot *telego.Bot) (<-chan te
 	updates, err := bot.UpdatesViaWebhook(
 		ctx,
 		telego.WebhookFastHTTP(
-			srv, "/bot", "secret_digi",
+			srv, "/bot", cfg.Telegram.WebHookSecretToken,
 		),
 	)
 

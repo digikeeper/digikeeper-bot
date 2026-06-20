@@ -12,14 +12,27 @@ type HandlerGroup interface {
 	Handle(handler th.Handler, predicates ...th.Predicate)
 }
 
-// BotHandler is an interface that defines the Group method
+// BotHandler is an interface that defines the Group method. It returns a
+// HandlerGroup (rather than the concrete *th.HandlerGroup) so callers can be
+// unit tested with a mock.
 type BotHandler interface {
-	Group(predicates ...th.Predicate) *th.HandlerGroup
+	Group(predicates ...th.Predicate) HandlerGroup
 }
 
-type BotHandlerGroup interface {
-	BotHandler
-	HandlerGroup
+// telegoBotHandler adapts telego's *th.BotHandler to the BotHandler interface.
+// telego's Group returns the concrete *th.HandlerGroup, which already satisfies
+// HandlerGroup, so the adapter only needs to widen the return type.
+type telegoBotHandler struct {
+	*th.BotHandler
+}
+
+func (a telegoBotHandler) Group(predicates ...th.Predicate) HandlerGroup {
+	return a.BotHandler.Group(predicates...)
+}
+
+// NewBotHandler adapts a telego *BotHandler to the BotHandler interface.
+func NewBotHandler(bh *th.BotHandler) BotHandler {
+	return telegoBotHandler{bh}
 }
 
 type RegisteredHandler struct {
@@ -50,7 +63,7 @@ func (ch *CommandHandlerGroup) RegisterCommand(command string, handler th.Handle
 // ch.RegisterCommand("start", HandleStartCommand, "Start the bot")
 // ch.RegisterCommand("stop", HandleStopCommand, "Stop the bot")
 // ch.BindCommandsToHandler(bh)
-func (ch *CommandHandlerGroup) BindCommandsToHandler(bh BotHandlerGroup) {
+func (ch *CommandHandlerGroup) BindCommandsToHandler(bh BotHandler) {
 	slog.Info("Binding command handlers", "commands", ch.getCommandToDescription())
 
 	commands := bh.Group(th.AnyCommand())

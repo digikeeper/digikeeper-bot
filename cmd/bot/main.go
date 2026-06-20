@@ -7,9 +7,9 @@ import (
 	th "github.com/mymmrac/telego/telegohandler"
 
 	cmdh "github.com/gitrus/digikeeper-bot/internal/cmd_handler"
+	session "github.com/gitrus/digikeeper-bot/pkg/sessionmanager"
 	cmdrouter "github.com/gitrus/digikeeper-bot/pkg/telego_commandrouter"
 	tm "github.com/gitrus/digikeeper-bot/pkg/telego_middleware"
-	session "github.com/gitrus/digikeeper-bot/pkg/sessionmanager"
 )
 
 func main() {
@@ -43,10 +43,10 @@ func main() {
 
 	cmdHandlerGroup := cmdrouter.NewCommandHandlerGroup()
 	cmdHandlerGroup.RegisterCommand("start", cmdh.HandleStart, "Show start-bot message")
-	cmdHandlerGroup.RegisterCommand("cancel", cmdh.HandleCancel(usm), "Interrupt any current operation/s")
-	cmdHandlerGroup.RegisterCommand("add", cmdh.HandleAdd(usm), "Add new note to the list")
+	cmdHandlerGroup.RegisterCommand("cancel", cmdh.NewCancelHandler(usm).Handle, "Interrupt any current operation/s")
+	cmdHandlerGroup.RegisterCommand("add", cmdh.NewAddHandler(usm).Handle, "Add new note to the list")
 
-	cmdHandlerGroup.BindCommandsToHandler(bh)
+	cmdHandlerGroup.BindCommandsToHandler(cmdrouter.NewBotHandler(bh))
 
 	logger.Info("CmdHandlerGroup", "group", cmdHandlerGroup)
 

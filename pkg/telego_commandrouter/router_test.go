@@ -15,9 +15,9 @@ type MockBotHandler struct {
 	mock.Mock
 }
 
-func (m *MockBotHandler) Group(predicates ...th.Predicate) *th.HandlerGroup {
+func (m *MockBotHandler) Group(predicates ...th.Predicate) tcr.HandlerGroup {
 	m.Called(predicates)
-	return &th.HandlerGroup{}
+	return m
 }
 
 func (m *MockBotHandler) Handle(handler th.Handler, predicates ...th.Predicate) {
@@ -50,49 +50,47 @@ func TestBindCommandHandlerGroup(t *testing.T) {
 	chg := tcr.NewCommandHandlerGroup()
 
 	mockBotHandler := new(MockBotHandler)
-
-	mockBotHandler.On("Group", mock.MatchedBy(func(predicates []th.Predicate) bool {
-		return len(predicates) == 1
-	})).Return(mockBotHandler)
+	mockBotHandler.On("Group", mock.Anything).Return(mockBotHandler)
+	mockBotHandler.On("Handle", mock.Anything, mock.Anything).Return()
 
 	testHandler := func(ctx *th.Context, update telego.Update) error { return nil }
-
 	chg.RegisterCommand("test", testHandler, "Test command description")
-
-	mockBotHandler.On("Handle",
-		mock.AnythingOfType("telegohandler.Handler"),
-		mock.MatchedBy(func(predicates []th.Predicate) bool {
-			return len(predicates) == 1
-		})).Return().Times(3) // Called for test, help, and unknown commands
 
 	chg.BindCommandsToHandler(mockBotHandler)
 
-	mockBotHandler.AssertCalled(t, "Group", mock.MatchedBy(func(predicates []th.Predicate) bool {
-		return len(predicates) == 1
-	}))
-
-	mockBotHandler.AssertNumberOfCalls(t, "Handle", 3)
-
-	calls := mockBotHandler.Calls
-
-	assert.Equal(t, 3, len(calls), "Should have exactly 3 calls to Handle")
-
-	for _, call := range calls {
-		assert.Equal(t, "Handle", call.Method, "All calls should be to the Handle method")
+	// A single command group is created for all command handlers, scoped by one
+	// predicate (th.AnyCommand()).
+	mockBotHandler.AssertNumberOfCalls(t, "Group", 1)
+	for _, call := range mockBotHandler.Calls {
+		if call.Method != "Group" {
+			continue
+		}
+		predicates := call.Arguments[0].([]th.Predicate)
+		assert.Len(t, predicates, 1, "Group should be created with a single predicate")
 	}
 
-	for i, call := range calls {
-		assert.Equal(t, 2, len(call.Arguments),
-			"Call %d should have exactly 2 arguments (handler and predicates)", i)
-	}
+	// Handlers registered on the group: the debug logger (no predicate) plus the
+	// "test", "help" and "unknown" handlers (one predicate each).
+	mockBotHandler.AssertNumberOfCalls(t, "Handle", 4)
 
-	for i, call := range calls {
-		assert.NotNil(t, call.Arguments[0], "Call %d should have a non-nil handler", i)
-	}
+	var withPredicate, withoutPredicate int
+	for _, call := range mockBotHandler.Calls {
+		if call.Method != "Handle" {
+			continue
+		}
+		assert.NotNil(t, call.Arguments[0], "handler should not be nil")
 
-	for i, call := range calls {
 		predicates := call.Arguments[1].([]th.Predicate)
-		assert.Equal(t, 1, len(predicates),
-			"Call %d should have exactly 1 predicate", i)
+		switch len(predicates) {
+		case 0:
+			withoutPredicate++
+		case 1:
+			withPredicate++
+		default:
+			t.Errorf("unexpected predicate count %d", len(predicates))
+		}
 	}
+
+	assert.Equal(t, 1, withoutPredicate, "debug handler is registered without a predicate")
+	assert.Equal(t, 3, withPredicate, "test, help and unknown handlers each have one predicate")
 }

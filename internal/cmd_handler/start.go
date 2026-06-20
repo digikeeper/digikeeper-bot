@@ -23,7 +23,7 @@ func HandleStart(ctx *th.Context, update telego.Update) error {
 	chatId := tu.ID(update.Message.Chat.ID)
 	_, err := ctx.Bot().SendMessage(ctx, tu.Message(
 		chatId,
-		"Hello! I'm a digikeeper bot. I can help you to keep your digital life in order.",
+		"Hello! I'm a digikeeper bot. I can help you to keep your digital twin in order.",
 	).WithReplyMarkup(startKeyboard))
 	if err != nil {
 		return err

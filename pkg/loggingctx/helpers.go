@@ -51,25 +51,23 @@ func AddLogAttrs(ctx context.Context, attrs []slog.Attr) context.Context {
 		logAttrs = make([]slog.Attr, 0, 9)
 	}
 
-	existAttrs := make(map[string]slog.Attr, len(logAttrs))
-	for _, attr := range logAttrs {
-		existAttrs[attr.Key] = attr
+	// Copy existing attributes so we never mutate the slice stored in the
+	// parent context, then track where each key lives to allow in-place override.
+	result := make([]slog.Attr, len(logAttrs), len(logAttrs)+len(attrs))
+	copy(result, logAttrs)
+
+	indexByKey := make(map[string]int, len(result))
+	for i, attr := range result {
+		indexByKey[attr.Key] = i
 	}
 
-	newAttrs := make([]slog.Attr, 0, len(attrs))
 	for _, attr := range attrs {
-		if _, ok := existAttrs[attr.Key]; ok {
-			existAttrs[attr.Key] = attr
+		if i, ok := indexByKey[attr.Key]; ok {
+			result[i] = attr
+			continue
 		}
-		newAttrs = append(newAttrs, attr)
-	}
-
-	result := make([]slog.Attr, 0, len(existAttrs)+len(newAttrs))
-	for _, attr := range existAttrs {
+		indexByKey[attr.Key] = len(result)
 		result = append(result, attr)
-	}
-	if len(newAttrs) > 0 {
-		result = append(result, newAttrs...)
 	}
 
 	return context.WithValue(ctx, LogAttrsKey, result)

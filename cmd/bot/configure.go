@@ -47,17 +47,18 @@ type CommonConfig struct {
 }
 
 type TelegramConfig struct {
-	BotKey         SecretValue `env:"BOT_TOKEN" env-default:""`
-	BotKeyFile     string      `env:"BOT_TOKEN_FILE" env-default:""`
-	PublicURL      string      `env:"BOT_PUBLIC_URL" env-default:"localhost"`
-	AllowedUpdates []string    `env:"ALLOWED_UPDATES" env-default:"message"`
+	BotKey             SecretValue `env:"BOT_TOKEN" env-default:""`
+	BotKeyFile         string      `env:"BOT_TOKEN_FILE" env-default:""`
+	PublicURL          string      `env:"BOT_PUBLIC_URL" env-default:"localhost"`
+	AllowedUpdates     []string    `env:"ALLOWED_UPDATES" env-default:"message"`
+	WebHookSecretToken string      `env:"WEB_HOOK_SECRET_TOKEN"`
 }
 
 type PostgresConfig struct {
 	Enabled      bool        `env:"ENABLED"`
-	Host         string      `env:"HOST" env-default:"localhost"`
-	Port         string      `env:"PORT" env-default:"5432"`
-	Database     string      `env:"DB" env-default:"digikeeper"`
+	Host         string      `env:"HOST"`
+	Port         string      `env:"PORT"`
+	Database     string      `env:"DB"`
 	User         SecretValue `env:"USER" env-default:"postgres"`
 	UserFile     string      `env:"USER_FILE" env-default:""`
 	Password     SecretValue `env:"PASSWORD" env-default:""`
