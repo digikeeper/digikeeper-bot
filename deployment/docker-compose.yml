@@ -1,30 +1,4 @@
 services:
-  dk-timescale:
-    image: timescale/timescaledb:2.19.2-pg17
-    container_name: timescaledb
-    environment:
-      - POSTGRES_USER_FILE=/run/secrets/db_user
-      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
-      - POSTGRES_DB=digikeeper
-    ports:
-      - target: 5432
-        published: 5432
-    volumes:
-      - timescaledb_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/db_user)"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - db
-    secrets:
-      - db_user
-      - db_password
-    mem_limit: 1G
-    mem_reservation: 512M
-    cpus: 1.0
-
   digikeeper-bot:
     image: ghcr.io/gitrus/digikeeper-bot:main
     container_name: digikeeper-bot
@@ -34,27 +8,17 @@ services:
       - TELEGRAM_BOT_TOKEN_FILE=/run/secrets/telegram_token
       - TELEGRAM_BOT_PUBLIC_URL=${TELEGRAM_BOT_PUBLIC_URL:-localhost}
       - TELEGRAM_ALLOWED_UPDATES=message
-      - POSTGRES_HOST=timescaledb
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER_FILE=/run/secrets/db_user
-      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
-      - POSTGRES_DB=digikeeper
+      - SQLITE_PATH=/data/sessions.db
+      - SESSION_EXPIRES_AFTER=24h
     ports:
       - target: 8081
         published: 8081
       - target: 8091
         published: 8091
     volumes:
-      - ..:/usr/app:ro
-    depends_on:
-      dk-timescale:
-        condition: service_healthy
-    networks:
-      - db
+      - sessions_data:/data
     restart: unless-stopped
     secrets:
-      - db_user
-      - db_password
       - telegram_token
     mem_limit: 512M
     mem_reservation: 256M
@@ -68,20 +32,9 @@ services:
       start_period: 40s
 
 volumes:
-  timescaledb_data:
+  sessions_data:
     driver: local
-  pgbackup_data:
-    driver: local
-
-networks:
-  db:
-    driver: bridge
-    internal: true
 
 secrets:
-  db_user:
-    file: ./secrets/db_user
-  db_password:
-    file: ./secrets/db_password
   telegram_token:
     file: ./secrets/telegram_token

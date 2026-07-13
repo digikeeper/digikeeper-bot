@@ -35,9 +35,13 @@ go.work.sum
 
 # COMMON
 tmp/
-./bot
+build/
+bot
 digikeeper-bot
 
 # llm
-llm-tasks/
 CLAUDE.md
+.pi/
+
+# sqlite
+sessions.db*

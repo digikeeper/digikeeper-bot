@@ -24,12 +24,16 @@ To deep dive into WHY/HOW this bot is developed, please refer to:
 OR:
 run `go run cmd/bot` in root directory
 
+## Development
+Common tasks are wrapped in a [`justfile`](https://github.com/casey/just) — run `just --list` to see all recipes:
+- `just build` -- build the binary into `./bin/digikeeper-bot`
+- `just run` -- run the bot locally
+- `just lint` -- run `golangci-lint` + `go fix -diff`
+- `just fmt` -- auto-fix lint issues
+- `just test` / `just unit` -- run tests
+
 ## Contribution
 Open a PR or Issue, I will be glad to see it.
 
 [*] Common conduct rules are applied (github-repo related contribution rules).
 [*] Apache 2.0 license is for safe usage and sharing
-
-Coding standards:
-* `go tool` is used
-  ** `golangci-lint` is used for code quality

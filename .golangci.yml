@@ -4,13 +4,14 @@ run:
   timeout: 1m
   tests: true
   modules-download-mode: readonly
-  go: "1.22"
 
 output:
   formats:
-    - format: colored-line-number
+    text:
       path: stdout
-  sort-results: true
+  sort-order:
+    - linter
+    - file
 
 linters:
   enable:
@@ -25,7 +26,6 @@ linters:
     - nilerr
     - noctx
     - staticcheck
-    - typecheck
     - unused
 
     # Code quality
@@ -35,14 +35,12 @@ linters:
     - gocognit
     - goconst
     - gocritic
-    - goimports # Formats imports
     - revive # Replacement for golint
     - unconvert # Removes unnecessary type conversions
     - unparam # Reports unused parameters
     - usestdlibvars
 
     # Style
-    - gofumpt
     - misspell
     - whitespace
     - godot
@@ -53,81 +51,87 @@ linters:
     - nilnil
     - usetesting
 
-linters-settings:
-  cyclop:
-    max-complexity: 12
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  exhaustive:
-    default-signifies-exhaustive: false
-  funlen:
-    lines: 100
-    statements: 50
-  gocognit:
-    min-complexity: 20
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-    disabled-checks:
-      - hugeParam
-      - rangeValCopy
-  gocyclo:
-    min-complexity: 15
-  godot:
-    scope: declarations
-  gofumpt:
-    extra-rules: true
-  govet:
-    enable:
-      - shadow
-  lll:
-    line-length: 120
-  nolintlint:
-    allow-unused: false
-    require-explanation: true
-    require-specific: true
-  revive:
+  settings:
+    cyclop:
+      max-complexity: 12
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    exhaustive:
+      default-signifies-exhaustive: false
+    funlen:
+      lines: 100
+      statements: 50
+    gocognit:
+      min-complexity: 20
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - hugeParam
+        - rangeValCopy
+    gocyclo:
+      min-complexity: 15
+    godot:
+      scope: declarations
+    govet:
+      enable:
+        - shadow
+    lll:
+      line-length: 120
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: indent-error-flow
+        - name: unused-parameter
+    depguard:
+      rules:
+        standard:
+          files:
+            - $all
+          allow:
+            - $gostd
+          deny:
+            - pkg: github.com/pkg/errors
+              desc: "Use standard errors package instead"
+        logging:
+          files:
+            - $all
+          deny:
+            - pkg: log
+              desc: "Use a structured logger instead"
+
+  exclusions:
     rules:
-      - name: indent-error-flow
-      - name: unused-parameter
-  depguard:
-    rules:
-      standard:
-        files:
-          - $all
-        allow:
-          - $gostd
-        deny:
-          - pkg: github.com/pkg/errors
-            desc: "Use standard errors package instead"
-      logging:
-        files:
-          - $all
-        deny:
-          - pkg: log
-            desc: "Use a structured logger instead"
+      - source: "^//go:generate "
+        linters: [lll]
+      - path: _test\.go
+        linters:
+          - dupl
+          - funlen
+          - gosec
+          - noctx
+      - path: test/
+        linters:
+          - goconst
+
+formatters:
+  enable:
+    - goimports
+    - gofumpt
+
+  settings:
+    gofumpt:
+      extra-rules: true
 
 issues:
   max-issues-per-linter: 10
   max-same-issues: 5
-  exclude-rules:
-    - source: "^//go:generate "
-      linters: [lll]
-    - path: _test\.go
-      linters:
-        - dupl
-        - funlen
-        - gosec
-        - noctx
-    - path: /vendor/
-      linters:
-        - all
-    - path: test/
-      linters:
-        - goconst
