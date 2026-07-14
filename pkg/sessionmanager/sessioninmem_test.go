@@ -29,7 +29,7 @@ func TestUserSessionManagerInMem_interfact(t *testing.T) {
 	assert.NotNil(t, manager)
 
 	// act
-	_, ok := interface{}(manager).(sessionmanager.UserSessionManager[*MockSession])
+	_, ok := any(manager).(sessionmanager.UserSessionManager[*MockSession])
 	// assert
 	assert.True(t, ok, "manager should implement UserSessionManager interface")
 }
