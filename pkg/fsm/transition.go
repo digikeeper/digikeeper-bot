@@ -30,9 +30,7 @@ type Event struct {
 	Payload map[string]string
 }
 
-// HandlerResult is what a handler returns: the state to move to, an optional
-// updated data payload and an optional side effect to run after the transition
-// succeeds.
+// HandlerResult is what a handler returns: the state to move to, an optional.
 type HandlerResult[T comparable] struct {
 	NextState  T
 	NewData    any          // The updated state data, available to the side effect.
@@ -95,10 +93,8 @@ func (f *FSM[T]) HandleEvent(ctx context.Context, event Event) error {
 		}
 	}
 
-	// The transition (if any) has succeeded; now run the side effect. Note the
-	// inherent non-atomicity: the state has already changed, so a failing side
-	// effect leaves the machine in the new state. Callers that need atomicity
-	// should compensate via a follow-up event.
+	// The transition (if any) has succeeded; run the side effect.
+	// Note the inherent non-atomicity: the state has already changed, so make it compensate-driven.
 	if result.SideEffect != nil {
 		if err := result.SideEffect(); err != nil {
 			return fmt.Errorf("fsm: side effect after event %q failed: %w", event.Type, err)

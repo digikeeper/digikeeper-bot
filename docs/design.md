@@ -83,7 +83,7 @@ interaction:
 ```
 DSL sounds fantastic from an engineering perspective, but it’s difficult to implement and maintain. It’s not popular for bot development, making it hard to find libraries or examples.
 Using a DSL for a medium-sized bot seems like overkill. FSM is much more popular but can also be excessive for small bots. A code-based FSM requires additional logic to manage states and transitions.
-My main goal is to describe a solution for a bot with several multi-step interactions, so I will choose FSM.
+Nevertheless my main goal is to describe a solution for a bot with several multi-step interactions, so I will choose FSM.
 
 2. **User state between interactions**
    - **Default approach:** Store user state in global variable or in-memory storage. This approach has problems: durability, possible race conditions, not scalable and not testable.
