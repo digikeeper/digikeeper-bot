@@ -8,6 +8,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	session "github.com/gitrus/digikeeper-bot/pkg/sessionmanager"
+	tm "github.com/gitrus/digikeeper-bot/pkg/telego_middleware"
 )
 
 type AddHandler struct {
@@ -21,8 +22,8 @@ func NewAddHandler(usm session.UserSessionManager[*session.SimpleUserSession]) *
 func (ah *AddHandler) Handle(ctx *th.Context, update telego.Update) error {
 	slog.InfoContext(ctx.Context(), "Receive /add")
 
-	userID := update.Message.From.ID
-	state, err := ah.usm.Fetch(ctx, userID)
+	key := tm.SessionKeyFromMessage(update.Message)
+	state, err := ah.usm.Fetch(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -30,8 +31,8 @@ func (ah *AddHandler) Handle(ctx *th.Context, update telego.Update) error {
 
 	_, err = ah.usm.Set(
 		ctx,
-		userID,
-		&session.SimpleUserSession{UserID: userID, State: "add", Version: state.Version + 1},
+		key,
+		&session.SimpleUserSession{SessionKey: key, State: "add", Version: state.Version + 1},
 		state.Version,
 	)
 	if err != nil {

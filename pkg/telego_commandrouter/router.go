@@ -1,13 +1,14 @@
 package telegocommandrouter
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
 )
 
-// HandlerGroup is an interface that defines the Handle method
+// HandlerGroup is an interface that defines the Handle method.
 type HandlerGroup interface {
 	Handle(handler th.Handler, predicates ...th.Predicate)
 }
@@ -62,9 +63,9 @@ func (ch *CommandHandlerGroup) RegisterCommand(command string, handler th.Handle
 // ch := NewCommandHandlerGroup()
 // ch.RegisterCommand("start", HandleStartCommand, "Start the bot")
 // ch.RegisterCommand("stop", HandleStopCommand, "Stop the bot")
-// ch.BindCommandsToHandler(bh)
-func (ch *CommandHandlerGroup) BindCommandsToHandler(bh BotHandler) {
-	slog.Info("Binding command handlers", "commands", ch.getCommandToDescription())
+// ch.BindCommandsToHandler(ctx, bh).
+func (ch *CommandHandlerGroup) BindCommandsToHandler(ctx context.Context, bh BotHandler) {
+	slog.InfoContext(ctx, "Binding command handlers", "commands", ch.getCommandToDescription())
 
 	commands := bh.Group(th.AnyCommand())
 
@@ -100,7 +101,7 @@ func (ch *CommandHandlerGroup) BindCommandsToHandler(bh BotHandler) {
 	)
 	predicates = append(predicates, helpP)
 
-	slog.Info("Bound predicates", slog.Int("predicates_len", len(predicates)))
+	slog.InfoContext(ctx, "Bound predicates", slog.Int("predicates_len", len(predicates)))
 
 	commands.Handle(
 		NewUnknownCommandHandler(DefaultUnknownCommandMessage), th.AnyCommand(),

@@ -6,7 +6,9 @@ import (
 
 	th "github.com/mymmrac/telego/telegohandler"
 
-	cmdh "github.com/gitrus/digikeeper-bot/internal/cmd_handler"
+	cmdh "github.com/gitrus/digikeeper-bot/internal/handler"
+	"github.com/gitrus/digikeeper-bot/internal/infra/sessionstore"
+	"github.com/gitrus/digikeeper-bot/internal/infra/sqlitedb"
 	session "github.com/gitrus/digikeeper-bot/pkg/sessionmanager"
 	cmdrouter "github.com/gitrus/digikeeper-bot/pkg/telego_commandrouter"
 	tm "github.com/gitrus/digikeeper-bot/pkg/telego_middleware"
@@ -37,8 +39,25 @@ func main() {
 
 	bh.Use(tm.AddUpdateSlogAttrs())
 
-	usm := session.NewUserSessionManagerInMem[*session.SimpleUserSession](session.NewSimpleUserSession)
-	useStateMiddleware := tm.NewUserSessionMiddleware[*session.SimpleUserSession](usm)
+	db, err := sqlitedb.Open(config.Sqlite.Path)
+	if err != nil {
+		logger.ErrorContext(ctx, "Failed to open sqlite", "error", err)
+		return
+	}
+	defer func() { _ = sqlitedb.Close(db) }() //nolint:errcheck // best-effort close on shutdown
+
+	usm, err := sessionstore.New(db, session.NewSimpleUserSession, config.Session.ExpiresAfter)
+	if err != nil {
+		logger.ErrorContext(ctx, "Failed to init session store", "error", err)
+		return
+	}
+
+	if config.Session.ExpiresAfter > 0 {
+		sweeper := sessionstore.NewSweeper(usm, config.Session.ExpiresAfter)
+		go sweeper.Run(ctx)
+	}
+
+	useStateMiddleware := tm.NewUserSessionMiddleware(usm)
 	bh.Use(useStateMiddleware.Middleware())
 
 	cmdHandlerGroup := cmdrouter.NewCommandHandlerGroup()
@@ -46,11 +65,11 @@ func main() {
 	cmdHandlerGroup.RegisterCommand("cancel", cmdh.NewCancelHandler(usm).Handle, "Interrupt any current operation/s")
 	cmdHandlerGroup.RegisterCommand("add", cmdh.NewAddHandler(usm).Handle, "Add new note to the list")
 
-	cmdHandlerGroup.BindCommandsToHandler(cmdrouter.NewBotHandler(bh))
+	cmdHandlerGroup.BindCommandsToHandler(ctx, cmdrouter.NewBotHandler(bh))
 
-	logger.Info("CmdHandlerGroup", "group", cmdHandlerGroup)
+	logger.InfoContext(ctx, "CmdHandlerGroup", "group", cmdHandlerGroup)
 
-	logger.Info("Starting bot ...")
+	logger.InfoContext(ctx, "Starting bot ...")
 	err = bh.Start()
 	if err != nil {
 		logger.ErrorContext(ctx, "Failed to start bot", "error", err)

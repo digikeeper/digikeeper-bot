@@ -7,13 +7,29 @@ import (
 
 	"github.com/gitrus/digikeeper-bot/pkg/loggingctx"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func findAttr(t *testing.T, attrs []any, key string) slog.Attr {
+	t.Helper()
+
+	for _, value := range attrs {
+		attr, ok := value.(slog.Attr)
+		require.True(t, ok, "log attribute has unexpected type %T", value)
+		if attr.Key == key {
+			return attr
+		}
+	}
+
+	t.Fatalf("attribute with key %q not found", key)
+	return slog.Attr{}
+}
 
 func TestAddLogAttr(t *testing.T) {
 	tests := []struct {
 		name     string
 		key      string
-		value    interface{}
+		value    any
 		setupFn  func(context.Context) context.Context
 		expected int
 	}{
@@ -46,39 +62,11 @@ func TestAddLogAttr(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Setup
-			ctx := context.Background()
-			ctx = tc.setupFn(ctx)
+			ctx := tc.setupFn(context.Background())
+			attrs := loggingctx.GetLogAttrs(loggingctx.AddLogAttr(ctx, tc.key, tc.value))
 
-			// Execute
-			newCtx := loggingctx.AddLogAttr(ctx, tc.key, tc.value)
-
-			// Verify using GetLogAttrs
-			attrs := loggingctx.GetLogAttrs(newCtx)
-			assert.Equal(t, tc.expected, len(attrs))
-
-			// Check if the new attribute exists
-			found := false
-			for _, anyAttr := range attrs {
-				if anyAttr.(slog.Attr).Key == tc.key {
-					found = true
-					switch v := tc.value.(type) {
-					case int:
-						if intVal, ok := anyAttr.(slog.Attr).Value.Any().(int64); ok {
-							assert.Equal(t, int64(v), intVal)
-						} else {
-							assert.Equal(t, v, anyAttr.(slog.Attr).Value.Any())
-						}
-					default:
-						assert.Equal(t, tc.value, anyAttr.(slog.Attr).Value.Any())
-					}
-					break
-				}
-			}
-
-			if !found && tc.key != "" {
-				t.Errorf("Attribute with key %s not found", tc.key)
-			}
+			assert.Len(t, attrs, tc.expected)
+			assert.Equal(t, slog.Any(tc.key, tc.value).Value, findAttr(t, attrs, tc.key).Value)
 		})
 	}
 }
@@ -95,8 +83,8 @@ func TestGetLogAttrsWithDifferentContexts(t *testing.T) {
 
 	assert.Equal(t, 1, len(attrs1))
 	assert.Equal(t, 1, len(attrs2))
-	assert.Equal(t, "value1", attrs1[0].(slog.Attr).Value.Any())
-	assert.Equal(t, "value2", attrs2[0].(slog.Attr).Value.Any())
+	assert.Equal(t, "value1", findAttr(t, attrs1, "key1").Value.Any())
+	assert.Equal(t, "value2", findAttr(t, attrs2, "key2").Value.Any())
 }
 
 func TestInitLogger(t *testing.T) {

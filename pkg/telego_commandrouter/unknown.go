@@ -27,7 +27,6 @@ func NewUnknownCommandHandler(unknownCommandMsg string) th.Handler {
 			chatID,
 			unknownCommandMsg,
 		))
-
 		if err != nil {
 			slog.ErrorContext(ctx.Context(), "Failed to send unknown command message", slog.Any("error", err))
 		}

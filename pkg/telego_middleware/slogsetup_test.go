@@ -14,7 +14,7 @@ import (
 	tm "github.com/gitrus/digikeeper-bot/pkg/telego_middleware"
 )
 
-// Test the firstNRunes function
+// TestFirstNRunes verifies FirstNRunes.
 func TestFirstNRunes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -56,14 +56,14 @@ func TestFirstNRunes(t *testing.T) {
 	}
 }
 
-// Test that AddSlogAttrs returns a function and checks its behavior
+// TestAddSlogAttrsTyping verifies AddUpdateSlogAttrs returns a handler.
 func TestAddSlogAttrsTyping(t *testing.T) {
 	handler := tm.AddUpdateSlogAttrs()
 	assert.NotNil(t, handler, "AddSlogAttrs should return a non-nil handler")
 
 	handlerType := assert.IsType(
 		t,
-		(th.Handler)(nil),
+		th.Handler(nil),
 		handler,
 		"AddSlogAttrs should return a th.Handler",
 	)
@@ -83,7 +83,7 @@ func TestAddSlogAttrsHandle(t *testing.T) {
 
 	wg.Add(1)
 	handlerCalled := false
-	handler := func(ctx *th.Context, msg telego.Message) error {
+	handler := func(ctx *th.Context, _ telego.Message) error {
 		defer wg.Done()
 		handlerCalled = true
 
@@ -93,24 +93,16 @@ func TestAddSlogAttrsHandle(t *testing.T) {
 
 		attrsMap := make(map[string]any)
 		for _, attr := range attrs {
-			slogAttr := attr.(slog.Attr)
+			slogAttr, ok := attr.(slog.Attr)
+			require.True(t, ok, "log attribute has unexpected type %T", attr)
 			attrsMap[slogAttr.Key] = slogAttr.Value.Any()
 		}
 
-		updateID, _ := attrsMap["update_id"]
-		assert.Equal(t, int64(999), updateID, "update_id should match expected value")
-
-		messageID, _ := attrsMap["message_id"]
-		assert.Equal(t, int64(123), messageID, "message_id should match expected value")
-
-		textFirst10, _ := attrsMap["text_first10"]
-		assert.Equal(t, "Test messa", textFirst10, "text_first10 should match expected value")
-
-		chatID, _ := attrsMap["chat_id"]
-		assert.Equal(t, int64(456), chatID, "chat_id should match expected value")
-
-		userID, _ := attrsMap["user_id"]
-		assert.Equal(t, int64(789), userID, "user_id should match expected value")
+		assert.Equal(t, int64(999), attrsMap["update_id"], "update_id should match expected value")
+		assert.Equal(t, int64(123), attrsMap["message_id"], "message_id should match expected value")
+		assert.Equal(t, "Test messa", attrsMap["text_first10"], "text_first10 should match expected value")
+		assert.Equal(t, int64(456), attrsMap["chat_id"], "chat_id should match expected value")
+		assert.Equal(t, int64(789), attrsMap["user_id"], "user_id should match expected value")
 
 		return nil
 	}
@@ -118,7 +110,10 @@ func TestAddSlogAttrsHandle(t *testing.T) {
 	bh.Use(tm.AddUpdateSlogAttrs())
 	bh.HandleMessage(handler)
 
-	go bh.Start()
+	startErr := make(chan error, 1)
+	go func() {
+		startErr <- bh.Start()
+	}()
 
 	testUpdate := telego.Update{
 		UpdateID: 999,
@@ -133,7 +128,8 @@ func TestAddSlogAttrsHandle(t *testing.T) {
 
 	close(updates)
 	wg.Wait()
-	bh.Stop()
+	require.NoError(t, bh.Stop())
+	require.NoError(t, <-startErr)
 
 	assert.True(t, handlerCalled, "Handler should have been called")
 }

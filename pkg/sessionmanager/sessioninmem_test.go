@@ -20,7 +20,7 @@ func (s *MockSession) GetVersion() int {
 	return s.version
 }
 
-func NewMockSession(userID int64) (*MockSession, error) {
+func NewMockSession(_ sessionmanager.SessionKey) (*MockSession, error) {
 	return &MockSession{}, nil
 }
 
@@ -30,7 +30,7 @@ func TestUserSessionManagerInMem_interfact(t *testing.T) {
 
 	// act
 	_, ok := interface{}(manager).(sessionmanager.UserSessionManager[*MockSession])
-	//assert
+	// assert
 	assert.True(t, ok, "manager should implement UserSessionManager interface")
 }
 
@@ -38,13 +38,13 @@ func TestUserSessionManagerInMem_FetchSet(t *testing.T) {
 	ctx := context.Background()
 	manager := sessionmanager.NewUserSessionManagerInMem[*MockSession](NewMockSession)
 	assert.NotNil(t, manager)
-	userID := int64(123)
-	state, err := manager.InitSession(ctx, userID)
+	key := sessionmanager.SessionKey{ChatID: 10, UserID: 123}
+	state, err := manager.InitSession(ctx, key)
 	assert.NoError(t, err)
 	assert.Equal(t, &MockSession{}, state)
 
 	// act
-	fetchedState, err := manager.Fetch(ctx, userID)
+	fetchedState, err := manager.Fetch(ctx, key)
 
 	// assert
 	assert.NoError(t, err)
@@ -52,14 +52,14 @@ func TestUserSessionManagerInMem_FetchSet(t *testing.T) {
 
 	// act
 	newSession := &MockSession{State: "action", version: 1}
-	updatedState, err := manager.Set(ctx, userID, newSession, 0)
+	updatedState, err := manager.Set(ctx, key, newSession, 0)
 
 	// assert
 	assert.NoError(t, err)
 	assert.Equal(t, newSession, updatedState)
 
 	// act
-	fetchedState, err = manager.Fetch(ctx, userID)
+	fetchedState, err = manager.Fetch(ctx, key)
 
 	// assert
 	assert.NoError(t, err)
@@ -70,28 +70,25 @@ func TestUserSessionManagerInMem_DropActive(t *testing.T) {
 	ctx := context.Background()
 	manager := sessionmanager.NewUserSessionManagerInMem[*MockSession](NewMockSession)
 	assert.NotNil(t, manager)
-	userID := int64(123)
-	state, err := manager.InitSession(ctx, userID)
+	key := sessionmanager.SessionKey{ChatID: 10, UserID: 123}
+	state, err := manager.InitSession(ctx, key)
 	assert.NoError(t, err)
 	assert.Equal(t, &MockSession{}, state)
 
 	// act
 	newSession := &MockSession{State: "action", version: 1}
-	updatedState, err := manager.Set(ctx, userID, newSession, 0)
+	updatedState, err := manager.Set(ctx, key, newSession, 0)
 
 	// assert
 	assert.NoError(t, err)
 	assert.Equal(t, newSession, updatedState)
 
 	// act
-	manager.DropActive(ctx, userID)
+	assert.NoError(t, manager.DropActive(ctx, key))
 
 	// assert
-	_, err = manager.Fetch(ctx, userID)
-	assert.Error(t, err)
-	assert.Equal(t, sessionmanager.ErrSessionManagement{
-		Reason: "user session not found for user ID 123",
-	}, err)
+	_, err = manager.Fetch(ctx, key)
+	assert.ErrorIs(t, err, sessionmanager.ErrSessionNotFound)
 }
 
 func TestUserSessionManagerInMem_FetchEmpty(t *testing.T) {
@@ -99,30 +96,30 @@ func TestUserSessionManagerInMem_FetchEmpty(t *testing.T) {
 	manager := sessionmanager.NewUserSessionManagerInMem[*MockSession](NewMockSession)
 	assert.NotNil(t, manager)
 
-	manager.Set(ctx, 455, &MockSession{}, 1)
+	stored := sessionmanager.SessionKey{ChatID: 10, UserID: 455}
+	_, err := manager.Set(ctx, stored, &MockSession{}, 1)
+	assert.Error(t, err)
 
-	//act
-	_, err := manager.Fetch(ctx, 456)
+	// act
+	missing := sessionmanager.SessionKey{ChatID: 10, UserID: 456}
+	_, err = manager.Fetch(ctx, missing)
 
 	// assert
-	assert.Error(t, err)
-	assert.Equal(t, sessionmanager.ErrSessionManagement{
-		Reason: "user session not found for user ID 456",
-	}, err)
+	assert.ErrorIs(t, err, sessionmanager.ErrSessionNotFound)
 }
 
 func TestUserSessionManagerInMem_SetVersionMismatch(t *testing.T) {
 	ctx := context.Background()
 	manager := sessionmanager.NewUserSessionManagerInMem[*MockSession](NewMockSession)
 	assert.NotNil(t, manager)
-	userID := int64(789)
-	state, err := manager.InitSession(ctx, userID)
+	key := sessionmanager.SessionKey{ChatID: 10, UserID: 789}
+	state, err := manager.InitSession(ctx, key)
 	assert.NoError(t, err)
 	assert.Equal(t, &MockSession{}, state)
 
 	// act
 	newSession := &MockSession{State: "action", version: 2}
-	updatedState, err := manager.Set(ctx, userID, newSession, 1)
+	updatedState, err := manager.Set(ctx, key, newSession, 1)
 
 	// assert
 	assert.Error(t, err)
@@ -130,7 +127,24 @@ func TestUserSessionManagerInMem_SetVersionMismatch(t *testing.T) {
 	assert.Equal(t, state, updatedState)
 
 	// verify stored session remains unchanged
-	fetchedState, err := manager.Fetch(ctx, userID)
+	fetchedState, err := manager.Fetch(ctx, key)
 	assert.NoError(t, err)
 	assert.Equal(t, state, fetchedState)
+}
+
+// TestUserSessionManagerInMem_PerChatIsolation verifies that the same user has
+// independent sessions across different chats/topics.
+func TestUserSessionManagerInMem_PerChatIsolation(t *testing.T) {
+	ctx := context.Background()
+	manager := sessionmanager.NewUserSessionManagerInMem[*MockSession](NewMockSession)
+
+	chatA := sessionmanager.SessionKey{ChatID: 1, UserID: 100}
+	chatB := sessionmanager.SessionKey{ChatID: 2, UserID: 100}
+
+	_, err := manager.InitSession(ctx, chatA)
+	assert.NoError(t, err)
+
+	// The same user in another chat has no session yet.
+	_, err = manager.Fetch(ctx, chatB)
+	assert.ErrorIs(t, err, sessionmanager.ErrSessionNotFound)
 }

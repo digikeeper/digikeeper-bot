@@ -1,12 +1,14 @@
 package telegocommandrouter_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	tcr "github.com/gitrus/digikeeper-bot/pkg/telego_commandrouter"
 )
@@ -33,7 +35,7 @@ func TestRegisterCommand(t *testing.T) {
 	chg := tcr.NewCommandHandlerGroup()
 
 	// Create a simple test handler
-	testHandler := func(ctx *th.Context, update telego.Update) error { return nil }
+	testHandler := func(_ *th.Context, _ telego.Update) error { return nil }
 
 	// Register a command
 	chg.RegisterCommand("test", testHandler, "Test command description")
@@ -53,10 +55,10 @@ func TestBindCommandHandlerGroup(t *testing.T) {
 	mockBotHandler.On("Group", mock.Anything).Return(mockBotHandler)
 	mockBotHandler.On("Handle", mock.Anything, mock.Anything).Return()
 
-	testHandler := func(ctx *th.Context, update telego.Update) error { return nil }
+	testHandler := func(_ *th.Context, _ telego.Update) error { return nil }
 	chg.RegisterCommand("test", testHandler, "Test command description")
 
-	chg.BindCommandsToHandler(mockBotHandler)
+	chg.BindCommandsToHandler(context.Background(), mockBotHandler)
 
 	// A single command group is created for all command handlers, scoped by one
 	// predicate (th.AnyCommand()).
@@ -65,7 +67,8 @@ func TestBindCommandHandlerGroup(t *testing.T) {
 		if call.Method != "Group" {
 			continue
 		}
-		predicates := call.Arguments[0].([]th.Predicate)
+		predicates, ok := call.Arguments[0].([]th.Predicate)
+		require.True(t, ok, "Group predicate argument has unexpected type %T", call.Arguments[0])
 		assert.Len(t, predicates, 1, "Group should be created with a single predicate")
 	}
 
@@ -80,7 +83,8 @@ func TestBindCommandHandlerGroup(t *testing.T) {
 		}
 		assert.NotNil(t, call.Arguments[0], "handler should not be nil")
 
-		predicates := call.Arguments[1].([]th.Predicate)
+		predicates, ok := call.Arguments[1].([]th.Predicate)
+		require.True(t, ok, "Handle predicate argument has unexpected type %T", call.Arguments[1])
 		switch len(predicates) {
 		case 0:
 			withoutPredicate++

@@ -29,7 +29,6 @@ func NewHelpHandler(cmdDescriptions map[string]string) th.Handler {
 
 		chatID := tu.ID(update.Message.Chat.ID)
 		_, err := ctx.Bot().SendMessage(ctx, tu.Message(chatID, helpMessageBuilder.String()))
-
 		if err != nil {
 			slog.ErrorContext(ctx.Context(), "Failed to send help message", slog.Any("error", err))
 		}

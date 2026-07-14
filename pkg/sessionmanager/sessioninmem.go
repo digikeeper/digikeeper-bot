@@ -6,10 +6,10 @@ import (
 	"sync"
 )
 
-// MockUserStateManager is a mock implementation of UserStateManager using sync.Map.
-// It provides thread-safe operations for managing user states in memory.
+// UserSessionManagerInMem is an in-memory UserSessionManager backed by sync.Map.
+// It provides thread-safe operations for managing user sessions in memory.
 type UserSessionManagerInMem[S UserSession] struct {
-	sessions sync.Map // key: int64, value: S
+	sessions sync.Map // key: SessionKey, value: S
 
 	userSessionFabric NewUserSession[S]
 }
@@ -26,60 +26,90 @@ func NewUserSessionManagerInMem[S UserSession](usf NewUserSession[S]) *UserSessi
 	return &UserSessionManagerInMem[S]{userSessionFabric: usf}
 }
 
-// InitState initializes a new session with NewUserSession(userID).
-func (usm *UserSessionManagerInMem[S]) InitSession(ctx context.Context, userID int64) (S, error) {
+// GetOrCreate returns the existing session for key or atomically stores a new
+// one from NewUserSession. It never replaces an existing session.
+func (usm *UserSessionManagerInMem[S]) GetOrCreate(_ context.Context, key SessionKey) (S, error) {
 	var zero S
-	newSession, err := usm.userSessionFabric(userID)
+	if value, ok := usm.sessions.Load(key); ok {
+		state, ok := value.(S)
+		if !ok {
+			return zero, ErrSessionManagement{
+				Reason: fmt.Sprintf("user session type assertion failed for %s", key),
+			}
+		}
+		return state, nil
+	}
+
+	newSession, err := usm.userSessionFabric(key)
 	if err != nil {
 		return zero, err
 	}
-	usm.sessions.Store(userID, newSession)
+	value, loaded := usm.sessions.LoadOrStore(key, newSession)
+	if !loaded {
+		return newSession, nil
+	}
 
-	return newSession, nil
+	state, ok := value.(S)
+	if !ok {
+		return zero, ErrSessionManagement{
+			Reason: fmt.Sprintf("user session type assertion failed for %s", key),
+		}
+	}
+	return state, nil
+}
+
+// InitSession is retained for backwards compatibility. New callers should use
+// GetOrCreate, which does not replace an existing session.
+func (usm *UserSessionManagerInMem[S]) InitSession(ctx context.Context, key SessionKey) (S, error) {
+	return usm.GetOrCreate(ctx, key)
 }
 
 func (m *UserSessionManagerInMem[S]) Fetch(
-	ctx context.Context, userID int64,
+	_ context.Context, key SessionKey,
 ) (S, error) {
 	var result S
-	if value, ok := m.sessions.Load(userID); ok {
+	if value, ok := m.sessions.Load(key); ok {
 		if state, ok := value.(S); ok {
 			return state, nil
 		}
 		return result, ErrSessionManagement{
-			Reason: fmt.Sprintf("user session type assertion failed for user ID %d", userID),
+			Reason: fmt.Sprintf("user session type assertion failed for %s", key),
 		}
 	}
 
-	return result, ErrSessionManagement{
-		Reason: fmt.Sprintf("user session not found for user ID %d", userID),
-	}
+	return result, fmt.Errorf("%w for %s", ErrSessionNotFound, key)
 }
 
-// DropActive removes the state for the specified user ID.
-func (m *UserSessionManagerInMem[S]) DropActive(ctx context.Context, userID int64) error {
-	m.sessions.Delete(userID)
+// DropActive removes the session for the specified key.
+func (m *UserSessionManagerInMem[S]) DropActive(_ context.Context, key SessionKey) error {
+	m.sessions.Delete(key)
 	return nil
 }
 
-// Set updates the session for the specified userID and version
-// Returns the new session if successful, or an error
+// Set updates the session for the specified key and version.
+// Returns the new session if successful, or an error.
 func (m *UserSessionManagerInMem[S]) Set(
-	ctx context.Context, userID int64, newSession S, prevVersion int,
+	_ context.Context, key SessionKey, newSession S, prevVersion int,
 ) (S, error) {
-	oldValue, loaded := m.sessions.Load(userID)
+	oldValue, loaded := m.sessions.Load(key)
 	if !loaded {
 		return newSession, ErrSessionManagement{Reason: "session not found"}
 	}
-	var oldSession S = oldValue.(S)
+	oldSession, ok := oldValue.(S)
+	if !ok {
+		var zero S
+		return zero, ErrSessionManagement{
+			Reason: fmt.Sprintf("user session type assertion failed for %s", key),
+		}
+	}
 	if oldSession.GetVersion() != prevVersion {
 		return oldSession, ErrSessionManagement{Reason: "version mismatch"}
 	}
 
-	swapped := m.sessions.CompareAndSwap(userID, oldSession, newSession)
+	swapped := m.sessions.CompareAndSwap(key, oldSession, newSession)
 	if !swapped {
 		err := ErrSessionManagement{
-			Reason: fmt.Sprintf("failed to Set for user ID %d", userID),
+			Reason: fmt.Sprintf("failed to Set for %s", key),
 		}
 		return oldSession, err
 	}
@@ -87,17 +117,20 @@ func (m *UserSessionManagerInMem[S]) Set(
 	return newSession, nil
 }
 
+// SimpleUserSession is a minimal session carrying its identifying key plus a
+// single FSM state string.
 type SimpleUserSession struct {
-	UserID  int64
+	SessionKey
+
 	State   string
 	Version int
 }
 
-func NewSimpleUserSession(userID int64) (*SimpleUserSession, error) {
+func NewSimpleUserSession(key SessionKey) (*SimpleUserSession, error) {
 	return &SimpleUserSession{
-		UserID:  userID,
-		State:   "",
-		Version: 1,
+		SessionKey: key,
+		State:      "",
+		Version:    1,
 	}, nil
 }
 
