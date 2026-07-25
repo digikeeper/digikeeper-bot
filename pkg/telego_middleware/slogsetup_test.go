@@ -14,6 +14,9 @@ import (
 	tm "github.com/gitrus/digikeeper-bot/pkg/telego_middleware"
 )
 
+// helloInput is the sample input shared by the FirstNRunes cases.
+const helloInput = "hello"
+
 // TestFirstNRunes verifies FirstNRunes.
 func TestFirstNRunes(t *testing.T) {
 	tests := []struct {
@@ -30,15 +33,15 @@ func TestFirstNRunes(t *testing.T) {
 		},
 		{
 			name:     "string shorter than n",
-			input:    "hello",
+			input:    helloInput,
 			n:        10,
-			expected: "hello",
+			expected: helloInput,
 		},
 		{
 			name:     "string longer than n",
 			input:    "hello world",
 			n:        5,
-			expected: "hello",
+			expected: helloInput,
 		},
 		{
 			name:     "string with unicode characters",

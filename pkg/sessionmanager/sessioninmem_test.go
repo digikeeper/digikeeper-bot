@@ -10,6 +10,9 @@ import (
 	"github.com/gitrus/digikeeper-bot/pkg/sessionmanager"
 )
 
+// stateAction is an arbitrary session state used across the Set tests.
+const stateAction = "action"
+
 type MockSession struct {
 	mock.Mock
 	State   string
@@ -51,7 +54,7 @@ func TestUserSessionManagerInMem_FetchSet(t *testing.T) {
 	assert.Equal(t, state, fetchedState)
 
 	// act
-	newSession := &MockSession{State: "action", version: 1}
+	newSession := &MockSession{State: stateAction, version: 1}
 	updatedState, err := manager.Set(ctx, key, newSession, 0)
 
 	// assert
@@ -76,7 +79,7 @@ func TestUserSessionManagerInMem_DropActive(t *testing.T) {
 	assert.Equal(t, &MockSession{}, state)
 
 	// act
-	newSession := &MockSession{State: "action", version: 1}
+	newSession := &MockSession{State: stateAction, version: 1}
 	updatedState, err := manager.Set(ctx, key, newSession, 0)
 
 	// assert
@@ -118,7 +121,7 @@ func TestUserSessionManagerInMem_SetVersionMismatch(t *testing.T) {
 	assert.Equal(t, &MockSession{}, state)
 
 	// act
-	newSession := &MockSession{State: "action", version: 2}
+	newSession := &MockSession{State: stateAction, version: 2}
 	updatedState, err := manager.Set(ctx, key, newSession, 1)
 
 	// assert

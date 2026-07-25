@@ -93,7 +93,7 @@ func (m *UserSessionManagerInMem[S]) Set(
 ) (S, error) {
 	oldValue, loaded := m.sessions.Load(key)
 	if !loaded {
-		return newSession, ErrSessionManagement{Reason: "session not found"}
+		return newSession, ErrSessionManagement{Reason: ReasonSessionNotFound}
 	}
 	oldSession, ok := oldValue.(S)
 	if !ok {

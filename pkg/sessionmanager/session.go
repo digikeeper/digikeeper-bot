@@ -20,10 +20,15 @@ func (k SessionKey) String() string {
 	return fmt.Sprintf("user %d in chat %d thread %d", k.UserID, k.ChatID, k.ThreadID)
 }
 
+// ReasonSessionNotFound is the ErrSessionManagement reason reported when no
+// active session exists for a key. Managers share it so their errors stay
+// comparable across the in-memory and SQLite implementations.
+const ReasonSessionNotFound = "session not found"
+
 // ErrSessionNotFound indicates that no active session exists for a key.
 // Callers may use errors.Is to distinguish this expected condition from
 // persistence or decoding failures.
-var ErrSessionNotFound = errors.New("session not found")
+var ErrSessionNotFound = errors.New(ReasonSessionNotFound)
 
 type UserSession interface {
 	GetVersion() int
