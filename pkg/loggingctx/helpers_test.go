@@ -10,6 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testKey is the log attribute key used across these tests.
+const testKey = "test-key"
+
 func findAttr(t *testing.T, attrs []any, key string) slog.Attr {
 	t.Helper()
 
@@ -35,23 +38,23 @@ func TestAddLogAttr(t *testing.T) {
 	}{
 		{
 			name:     "add first attribute",
-			key:      "test-key",
+			key:      testKey,
 			value:    "test-value",
 			setupFn:  func(ctx context.Context) context.Context { return ctx },
 			expected: 1,
 		},
 		{
 			name:  "override existing attribute",
-			key:   "test-key",
+			key:   testKey,
 			value: "test-value2",
 			setupFn: func(ctx context.Context) context.Context {
-				return loggingctx.AddLogAttr(ctx, "test-key", "test-value")
+				return loggingctx.AddLogAttr(ctx, testKey, "test-value")
 			},
 			expected: 1,
 		},
 		{
 			name:  "add additional attribute",
-			key:   "test-key",
+			key:   testKey,
 			value: 64,
 			setupFn: func(ctx context.Context) context.Context {
 				return loggingctx.AddLogAttr(ctx, "another-key", "another-value")

@@ -185,14 +185,14 @@ func (m *Repository[S]) Set(
 	).Scan(&current.Data, &current.ExpiresAt)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		return zero, session.ErrSessionManagement{Reason: "session not found"}
+		return zero, session.ErrSessionManagement{Reason: session.ReasonSessionNotFound}
 	case err != nil:
 		return zero, session.ErrSessionManagement{Reason: fmt.Sprintf("inspect user session for %s: %v", key, err)}
 	}
 
 	if current.ExpiresAt.Valid && current.ExpiresAt.Int64 < now {
 		m.deleteExpired(ctx, key)
-		return zero, session.ErrSessionManagement{Reason: "session not found"}
+		return zero, session.ErrSessionManagement{Reason: session.ReasonSessionNotFound}
 	}
 
 	oldSession, err := DecodeSession[S](current.Data)

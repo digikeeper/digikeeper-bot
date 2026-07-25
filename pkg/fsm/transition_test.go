@@ -12,6 +12,9 @@ import (
 	"github.com/gitrus/digikeeper-bot/pkg/fsm"
 )
 
+// metaUserKey is the payload/metadata key exercised by the transition tests.
+const metaUserKey = "user"
+
 type state string
 
 const (
@@ -109,15 +112,15 @@ func TestHandleEventMetadataFlowsToNextHandler(t *testing.T) {
 		},
 	)
 
-	require.NoError(t, m.HandleEvent(t.Context(), fsm.Event{Type: evStart, Payload: map[string]string{"user": "42"}}))
+	require.NoError(t, m.HandleEvent(t.Context(), fsm.Event{Type: evStart, Payload: map[string]string{metaUserKey: "42"}}))
 
 	gotState, gotMeta := m.CurrentStateWithMetadata()
 	assert.Equal(t, running, gotState)
-	assert.Equal(t, map[string]string{"user": "42"}, gotMeta)
+	assert.Equal(t, map[string]string{metaUserKey: "42"}, gotMeta)
 
 	require.NoError(t, m.HandleEvent(t.Context(), fsm.Event{Type: evStop}))
 	assert.Equal(t, stopped, m.CurrentState())
-	assert.Equal(t, map[string]string{"user": "42"}, seen, "handler should receive the metadata from the prior transition")
+	assert.Equal(t, map[string]string{metaUserKey: "42"}, seen, "handler should receive the metadata from the prior transition")
 }
 
 func TestHandleEventMissingHandler(t *testing.T) {

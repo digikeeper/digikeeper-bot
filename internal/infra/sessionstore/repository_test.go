@@ -12,6 +12,9 @@ import (
 	session "github.com/gitrus/digikeeper-bot/pkg/sessionmanager"
 )
 
+// stateAdd is an arbitrary session state used across the update tests.
+const stateAdd = "add"
+
 // compile-time assertion that the SQLite manager satisfies the port.
 var _ session.UserSessionManager[*session.SimpleUserSession] = (*Repository[*session.SimpleUserSession])(nil)
 
@@ -54,7 +57,7 @@ func TestRepository_InitFetchSetFetch(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, state, fetched)
 
-	updated := &session.SimpleUserSession{SessionKey: key, State: "add", Version: 2}
+	updated := &session.SimpleUserSession{SessionKey: key, State: stateAdd, Version: 2}
 	got, err := m.Set(ctx, key, updated, 1)
 	require.NoError(t, err)
 	assert.Equal(t, updated, got)
@@ -98,7 +101,7 @@ func TestRepository_GetOrCreatePreservesExistingSession(t *testing.T) {
 	_, err := m.GetOrCreate(ctx, key)
 	require.NoError(t, err)
 
-	existing := &session.SimpleUserSession{SessionKey: key, State: "add", Version: 2}
+	existing := &session.SimpleUserSession{SessionKey: key, State: stateAdd, Version: 2}
 	_, err = m.Set(ctx, key, existing, 1)
 	require.NoError(t, err)
 
@@ -139,7 +142,7 @@ func TestRepository_SetVersionMismatch(t *testing.T) {
 	state, err := m.InitSession(ctx, key)
 	require.NoError(t, err)
 
-	newSession := &session.SimpleUserSession{SessionKey: key, State: "add", Version: 2}
+	newSession := &session.SimpleUserSession{SessionKey: key, State: stateAdd, Version: 2}
 	got, err := m.Set(ctx, key, newSession, 5)
 	assert.Equal(t, session.ErrSessionManagement{Reason: "version mismatch"}, err)
 	assert.Equal(t, state, got, "stored session is returned on mismatch")
@@ -155,7 +158,7 @@ func TestRepository_SetMissing(t *testing.T) {
 	key := session.SessionKey{ChatID: 99, UserID: 999}
 
 	_, err := m.Set(ctx, key, &session.SimpleUserSession{SessionKey: key, Version: 1}, 0)
-	assert.Equal(t, session.ErrSessionManagement{Reason: "session not found"}, err)
+	assert.Equal(t, session.ErrSessionManagement{Reason: session.ReasonSessionNotFound}, err)
 }
 
 func TestRepository_TTLExpiryLazy(t *testing.T) {
