@@ -8,7 +8,7 @@ import (
 	th "github.com/mymmrac/telego/telegohandler"
 )
 
-// FirstNRunes returns the first n runes of a string
+// FirstNRunes returns the first n runes of a string.
 func FirstNRunes(s string, n int) string {
 	runes := []rune(s)
 	if n > len(runes) {

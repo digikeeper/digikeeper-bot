@@ -8,6 +8,7 @@ import (
 	tu "github.com/mymmrac/telego/telegoutil"
 
 	session "github.com/gitrus/digikeeper-bot/pkg/sessionmanager"
+	tm "github.com/gitrus/digikeeper-bot/pkg/telego_middleware"
 )
 
 type CancelHandler struct {
@@ -23,8 +24,11 @@ func NewCancelHandler(
 func (ch *CancelHandler) Handle(ctx *th.Context, update telego.Update) error {
 	slog.InfoContext(ctx.Context(), "Receive /cancel")
 
-	userID := update.Message.From.ID
-	ch.usm.DropActive(ctx, userID)
+	key := tm.SessionKeyFromMessage(update.Message)
+	if err := ch.usm.DropActive(ctx, key); err != nil {
+		slog.ErrorContext(ctx.Context(), "Failed to drop active session", "error", err)
+		return err
+	}
 
 	chatId := tu.ID(update.Message.Chat.ID)
 	_, err := ctx.Bot().SendMessage(ctx, tu.Message(

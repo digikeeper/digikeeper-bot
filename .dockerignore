@@ -1,0 +1,24 @@
+# Version-control and local agent/editor configuration
+.git
+.github
+
+# Local runtime and build artifacts
+bin
+tmp
+
+# Local configuration and secrets
+.env
+.env.*
+
+# Repository material not required to compile the server
+Dockerfile
+.dockerignore
+.gitignore
+.golangci.yml
+justfile
+package-lock.json
+*.md
+LICENSE
+
+# sqlite
+sessions.db*

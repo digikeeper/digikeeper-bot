@@ -12,6 +12,9 @@ import (
 	"github.com/gitrus/digikeeper-bot/pkg/fsm"
 )
 
+// metaUserKey is the payload/metadata key exercised by the transition tests.
+const metaUserKey = "user"
+
 type state string
 
 const (
@@ -38,7 +41,7 @@ func TestHandleEventTransitions(t *testing.T) {
 	m := newMachine()
 	m.AddHandler(
 		fsm.HandlerKey[state]{State: idle, EventType: evStart},
-		func(_ context.Context, _ state, _ fsm.Event) (fsm.HandlerResult[state], error) {
+		func(_ context.Context, _ state, _ map[string]string, _ fsm.Event) (fsm.HandlerResult[state], error) {
 			return fsm.HandlerResult[state]{NextState: running}, nil
 		},
 	)
@@ -55,7 +58,7 @@ func TestHandleEventRunsSideEffectAfterTransition(t *testing.T) {
 	var sideEffectRan bool
 	m.AddHandler(
 		fsm.HandlerKey[state]{State: idle, EventType: evStart},
-		func(_ context.Context, _ state, _ fsm.Event) (fsm.HandlerResult[state], error) {
+		func(_ context.Context, _ state, _ map[string]string, _ fsm.Event) (fsm.HandlerResult[state], error) {
 			return fsm.HandlerResult[state]{
 				NextState:  running,
 				SideEffect: func() error { sideEffectRan = true; return nil },
@@ -75,7 +78,7 @@ func TestHandleEventNoStateChangeStillRunsSideEffect(t *testing.T) {
 	// but the side effect must still run.
 	m.AddHandler(
 		fsm.HandlerKey[state]{State: idle, EventType: evPing},
-		func(_ context.Context, s state, _ fsm.Event) (fsm.HandlerResult[state], error) {
+		func(_ context.Context, s state, _ map[string]string, _ fsm.Event) (fsm.HandlerResult[state], error) {
 			return fsm.HandlerResult[state]{
 				NextState:  s,
 				SideEffect: func() error { sideEffectRan = true; return nil },
@@ -86,6 +89,38 @@ func TestHandleEventNoStateChangeStillRunsSideEffect(t *testing.T) {
 	require.NoError(t, m.HandleEvent(t.Context(), fsm.Event{Type: evPing}))
 	assert.Equal(t, idle, m.CurrentState())
 	assert.True(t, sideEffectRan)
+}
+
+func TestHandleEventMetadataFlowsToNextHandler(t *testing.T) {
+	m := newMachine()
+
+	// The idle->running handler records metadata on the transition.
+	m.AddHandler(
+		fsm.HandlerKey[state]{State: idle, EventType: evStart},
+		func(_ context.Context, _ state, _ map[string]string, ev fsm.Event) (fsm.HandlerResult[state], error) {
+			return fsm.HandlerResult[state]{NextState: running, Metadata: ev.Payload}, nil
+		},
+	)
+
+	// The running->stopped handler reads back the metadata recorded above.
+	var seen map[string]string
+	m.AddHandler(
+		fsm.HandlerKey[state]{State: running, EventType: evStop},
+		func(_ context.Context, _ state, md map[string]string, _ fsm.Event) (fsm.HandlerResult[state], error) {
+			seen = md
+			return fsm.HandlerResult[state]{NextState: stopped}, nil
+		},
+	)
+
+	require.NoError(t, m.HandleEvent(t.Context(), fsm.Event{Type: evStart, Payload: map[string]string{metaUserKey: "42"}}))
+
+	gotState, gotMeta := m.CurrentStateWithMetadata()
+	assert.Equal(t, running, gotState)
+	assert.Equal(t, map[string]string{metaUserKey: "42"}, gotMeta)
+
+	require.NoError(t, m.HandleEvent(t.Context(), fsm.Event{Type: evStop}))
+	assert.Equal(t, stopped, m.CurrentState())
+	assert.Equal(t, map[string]string{metaUserKey: "42"}, seen, "handler should receive the metadata from the prior transition")
 }
 
 func TestHandleEventMissingHandler(t *testing.T) {
@@ -103,7 +138,7 @@ func TestHandleEventHandlerError(t *testing.T) {
 	wantErr := errors.New("boom")
 	m.AddHandler(
 		fsm.HandlerKey[state]{State: idle, EventType: evStart},
-		func(_ context.Context, _ state, _ fsm.Event) (fsm.HandlerResult[state], error) {
+		func(_ context.Context, _ state, _ map[string]string, _ fsm.Event) (fsm.HandlerResult[state], error) {
 			return fsm.HandlerResult[state]{}, wantErr
 		},
 	)
@@ -121,7 +156,7 @@ func TestHandleEventInvalidTransitionIsRejected(t *testing.T) {
 	// idle -> stopped is not an allowed rule, so statetrooper must reject it.
 	m.AddHandler(
 		fsm.HandlerKey[state]{State: idle, EventType: evStop},
-		func(_ context.Context, _ state, _ fsm.Event) (fsm.HandlerResult[state], error) {
+		func(_ context.Context, _ state, _ map[string]string, _ fsm.Event) (fsm.HandlerResult[state], error) {
 			return fsm.HandlerResult[state]{NextState: stopped}, nil
 		},
 	)
@@ -139,7 +174,7 @@ func TestHandleEventSideEffectErrorPropagates(t *testing.T) {
 	wantErr := errors.New("side effect failed")
 	m.AddHandler(
 		fsm.HandlerKey[state]{State: idle, EventType: evStart},
-		func(_ context.Context, _ state, _ fsm.Event) (fsm.HandlerResult[state], error) {
+		func(_ context.Context, _ state, _ map[string]string, _ fsm.Event) (fsm.HandlerResult[state], error) {
 			return fsm.HandlerResult[state]{
 				NextState:  running,
 				SideEffect: func() error { return wantErr },

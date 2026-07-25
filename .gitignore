@@ -35,9 +35,16 @@ go.work.sum
 
 # COMMON
 tmp/
-./bot
-digikeeper-bot
+build/
+# Built binaries only. These must stay anchored to the repo root: unanchored
+# "bot" also matches the cmd/bot/ directory and silently ignores sources in it.
+bin/
+/bot
+/digikeeper-bot
 
 # llm
-llm-tasks/
 CLAUDE.md
+.pi/
+
+# sqlite
+sessions.db*

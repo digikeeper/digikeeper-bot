@@ -36,15 +36,15 @@ import (
 
 type contextKey string
 
-// LogAttrsKey is the context key used for storing logging attributes
+// LogAttrsKey is the context key used for storing logging attributes.
 const LogAttrsKey contextKey = "LogAttrsKey"
 
-// AddLogAttr adds a logging attribute to the provided context
+// AddLogAttr adds a logging attribute to the provided context.
 func AddLogAttr(ctx context.Context, key string, value any) context.Context {
 	return AddLogAttrs(ctx, []slog.Attr{slog.Any(key, value)})
 }
 
-// AddLogAttr adds a logging attributes list to the provided context
+// AddLogAttrs adds a list of logging attributes to the provided context.
 func AddLogAttrs(ctx context.Context, attrs []slog.Attr) context.Context {
 	logAttrs, ok := ctx.Value(LogAttrsKey).([]slog.Attr)
 	if !ok {
@@ -73,7 +73,7 @@ func AddLogAttrs(ctx context.Context, attrs []slog.Attr) context.Context {
 	return context.WithValue(ctx, LogAttrsKey, result)
 }
 
-// GetLogAttrs retrieves logging attributes slice from the context
+// GetLogAttrs retrieves the logging attributes slice from the context.
 func GetLogAttrs(ctx context.Context) []any {
 	attrs, ok := ctx.Value(LogAttrsKey).([]slog.Attr)
 	if !ok {
@@ -88,12 +88,12 @@ func GetLogAttrs(ctx context.Context) []any {
 }
 
 // ContextHandler is a custom slog handler that
-// includes context attributes from LogAttrsKey
+// includes context attributes from LogAttrsKey.
 type ContextHandler struct {
 	handler slog.Handler
 }
 
-// Handle implements slog.Handler.Handle by adding attributes from context automatically
+// Handle implements slog.Handler.Handle by adding attributes from context automatically.
 func (h *ContextHandler) Handle(ctx context.Context, record slog.Record) error {
 	if ctx == nil {
 		return h.handler.Handle(ctx, record)
@@ -147,7 +147,7 @@ func InitLogger(environ string) (*slog.Logger, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("Fail at init zap logger %w", err)
+		return nil, fmt.Errorf("initialize zap logger: %w", err)
 	}
 
 	zapHandler := zapslog.NewHandler(logger.Core())
